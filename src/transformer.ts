@@ -21,6 +21,10 @@ const defaultOptions: NotePropertiesOptions = {
   hidePropertiesView: false,
   delimiters: "---",
   language: "yaml",
+  htmlInProperties: true,
+  downloadAttachments: true,
+  attachmentExtensions: [],
+  downloadNameFrom: "alias",
 };
 
 function coalesceAliases(data: Record<string, unknown>, aliases: string[]): unknown | undefined {
@@ -243,6 +247,11 @@ export const NoteProperties: QuartzTransformerPlugin<Partial<NotePropertiesOptio
               hideView: opts.hidePropertiesView,
               showProperties,
               collapseProperties,
+              // 透传给组件：HTML 锚点渲染与附件下载属性
+              htmlInProperties: opts.htmlInProperties,
+              downloadAttachments: opts.downloadAttachments,
+              attachmentExtensions: opts.attachmentExtensions,
+              downloadNameFrom: opts.downloadNameFrom,
             };
 
             file.data.frontmatter = data as QuartzPluginData["frontmatter"];
@@ -294,6 +303,10 @@ declare module "vfile" {
       showProperties?: boolean;
       collapseProperties?: boolean;
       resolvedLinks?: Record<string, string>;
+      htmlInProperties?: boolean;
+      downloadAttachments?: boolean;
+      attachmentExtensions?: string[];
+      downloadNameFrom?: "alias" | "basename";
     };
   }
 }

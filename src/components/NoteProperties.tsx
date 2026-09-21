@@ -6,22 +6,51 @@ import type {
 import { classNames } from "../util/lang";
 import { resolveRelative, slugifyWikilinkTarget } from "../util/path";
 import { i18n } from "../i18n";
+import { fromHtml } from "hast-util-from-html";
+import { htmlToJsx } from "@quartz-community/utils/jsx";
+import type { AttachmentOptions, DownloadNameSource } from "../util/attachments";
+import { buildDownloadProps } from "../util/attachments";
 import style from "./styles/noteProperties.scss";
 // @ts-expect-error - inline script import handled by Quartz bundler
 import script from "./scripts/noteProperties.inline.ts";
 
 export interface NotePropertiesComponentOptions {
   collapsed?: boolean;
+  /** 值形如 `<a …>…</a>` 时按 HTML 渲染（默认 true） */
+  htmlInProperties?: boolean;
+  /** 命中附件判定则挂 download（默认 true） */
+  downloadAttachments?: boolean;
+  /** 显式附件扩展名白名单（默认空 = 带扩展名且非页面） */
+  attachmentExtensions?: string[];
+  /** 另存名来源（默认 alias） */
+  downloadNameFrom?: DownloadNameSource;
 }
 
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 const MDLINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
 const URL_RE = /https?:\/\/[^\s<>]+/g;
 
-type RenderCtx = { slug: string; resolvedLinks: Record<string, string> };
+type RenderCtx = {
+  slug: string;
+  resolvedLinks: Record<string, string>;
+} & Required<AttachmentOptions> & { htmlInProperties: boolean };
 
 function lookupHref(ctx: RenderCtx, slugifiedTarget: string): string {
   return ctx.resolvedLinks[slugifiedTarget] ?? resolveRelative(ctx.slug, slugifiedTarget);
+}
+
+/** frontmatter 值形如 `<a …>…</a>` 时按 HTML 渲染（HAST→JSX，非 innerHTML） */
+const HTML_ANCHOR_RE = /^\s*<a[\s>]/i;
+
+function renderHtmlAnchor(value: string, ctx: RenderCtx): preact.JSX.Element | null {
+  if (!ctx.htmlInProperties) return null;
+  if (!HTML_ANCHOR_RE.test(value)) return null;
+  try {
+    return htmlToJsx(fromHtml(value, { fragment: true }));
+  } catch {
+    // 解析失败回退为纯文本（等价社区行为），不阻断构建
+    return null;
+  }
 }
 
 function renderTextWithLinks(text: string, ctx: RenderCtx): (preact.JSX.Element | string)[] {
@@ -34,7 +63,11 @@ function renderTextWithLinks(text: string, ctx: RenderCtx): (preact.JSX.Element 
       start: match.index,
       end: match.index + match[0].length,
       node: (
-        <a href={href} class="internal internal-link note-properties-link">
+        <a
+          href={href}
+          class="internal internal-link note-properties-link"
+          {...buildDownloadProps(href, display, ctx)}
+        >
           {display}
         </a>
       ),
@@ -50,6 +83,7 @@ function renderTextWithLinks(text: string, ctx: RenderCtx): (preact.JSX.Element 
     const href = match[2]!;
     const isExternal = href.startsWith("http://") || href.startsWith("https://");
     const resolvedHref = isExternal ? href : lookupHref(ctx, href);
+    const downloadProps = isExternal ? {} : buildDownloadProps(resolvedHref, display, ctx);
     segments.push({
       start: match.index,
       end: match.index + match[0].length,
@@ -61,6 +95,7 @@ function renderTextWithLinks(text: string, ctx: RenderCtx): (preact.JSX.Element 
             "note-properties-link",
           )}
           {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          {...downloadProps}
         >
           {display || href}
         </a>
@@ -128,6 +163,10 @@ function renderValue(value: unknown, ctx: RenderCtx): preact.JSX.Element | strin
   }
 
   if (typeof value === "string") {
+    const htmlAnchor = renderHtmlAnchor(value, ctx);
+    if (htmlAnchor) {
+      return <span class="note-properties-text">{htmlAnchor}</span>;
+    }
     const parts = renderTextWithLinks(value, ctx);
     return <span class="note-properties-text">{parts}</span>;
   }
@@ -172,7 +211,13 @@ function renderTagList(tags: string[], ctx: RenderCtx): preact.JSX.Element {
 }
 
 export default ((opts?: NotePropertiesComponentOptions) => {
-  const { collapsed = false } = opts ?? {};
+  const {
+    collapsed = false,
+    htmlInProperties = true,
+    downloadAttachments = true,
+    attachmentExtensions = [],
+    downloadNameFrom = "alias",
+  } = opts ?? {};
 
   const Component: QuartzComponent = (props: QuartzComponentProps) => {
     const noteProps = props.fileData?.noteProperties as
@@ -182,6 +227,10 @@ export default ((opts?: NotePropertiesComponentOptions) => {
           showProperties?: boolean;
           collapseProperties?: boolean;
           resolvedLinks?: Record<string, string>;
+          htmlInProperties?: boolean;
+          downloadAttachments?: boolean;
+          attachmentExtensions?: string[];
+          downloadNameFrom?: DownloadNameSource;
         }
       | undefined;
     if (!noteProps) return null;
@@ -200,6 +249,11 @@ export default ((opts?: NotePropertiesComponentOptions) => {
     const ctx: RenderCtx = {
       slug: (props.fileData?.slug as string) ?? "",
       resolvedLinks: noteProps.resolvedLinks ?? {},
+      // 选项优先级：transformer 透传（YAML options）> 组件选项 > 默认值
+      htmlInProperties: noteProps.htmlInProperties ?? htmlInProperties,
+      downloadAttachments: noteProps.downloadAttachments ?? downloadAttachments,
+      attachmentExtensions: noteProps.attachmentExtensions ?? attachmentExtensions,
+      downloadNameFrom: noteProps.downloadNameFrom ?? downloadNameFrom,
     };
 
     // Per-note collapse override takes precedence over component option

@@ -1,5 +1,5 @@
 {
-  "name": "@quartz-community/note-properties",
+  "name": "@quartz-community/note-properties-pro",
   "version": "1.0.0",
   "description": "Frontmatter processing and note properties display for Quartz",
   "type": "module",
@@ -67,7 +67,8 @@
   },
   "dependencies": {
     "@quartz-community/types": "^1.0.0",
-    "@quartz-community/utils": "^1.0.0"
+    "@quartz-community/utils": "^1.0.0",
+    "hast-util-from-html": "^2.0.3"
   },
   "devDependencies": {
     "@types/hast": "^3.0.4",
@@ -98,8 +99,8 @@
     "npm": ">=10.9.2"
   },
   "quartz": {
-    "name": "note-properties",
-    "displayName": "Note Properties",
+    "name": "note-properties-pro",
+    "displayName": "Note Properties (Pro)",
     "category": [
       "transformer",
       "component"
@@ -108,7 +109,7 @@
     "quartzVersion": ">=5.0.0",
     "dependencies": [],
     "defaultOrder": 5,
-    "defaultEnabled": true,
+    "defaultEnabled": false,
     "defaultOptions": {
       "includeAll": false,
       "includedProperties": [
@@ -119,7 +120,11 @@
       "excludedProperties": [],
       "hidePropertiesView": false,
       "delimiters": "---",
-      "language": "yaml"
+      "language": "yaml",
+      "htmlInProperties": true,
+      "downloadAttachments": true,
+      "attachmentExtensions": [],
+      "downloadNameFrom": "alias"
     },
     "optionSchema": {
       "includeAll": {
@@ -149,6 +154,26 @@
           "toml"
         ],
         "description": "Frontmatter language"
+      },
+      "htmlInProperties": {
+        "type": "boolean",
+        "description": "Render HTML anchors (<a ...>...</a>) written in frontmatter values instead of escaping them"
+      },
+      "downloadAttachments": {
+        "type": "boolean",
+        "description": "Add a download attribute to links whose target is an attachment (a resource file, not a page)"
+      },
+      "attachmentExtensions": {
+        "type": "array",
+        "description": "Explicit attachment extensions (with dot). Empty = any extension except .md/.html/.htm"
+      },
+      "downloadNameFrom": {
+        "type": "enum",
+        "values": [
+          "alias",
+          "basename"
+        ],
+        "description": "Where the download file name comes from: wikilink alias first (fallback basename), or always the target basename"
       }
     },
     "components": {

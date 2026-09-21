@@ -34,4 +34,16 @@ export interface NotePropertiesOptions {
   delimiters: string | [string, string];
   /** Frontmatter language. Defaults to "yaml". */
   language: "yaml" | "toml";
+  /**
+   * Render HTML anchors (`<a ...>...</a>`) written inside frontmatter values instead of escaping
+   * them as plain text. Lets a value carry `href` / `download` / link text independently.
+   * Defaults to true.
+   */
+  htmlInProperties: boolean;
+  /** Add `download` (+ `data-router-ignore`) to links whose target is an attachment. Defaults to true. */
+  downloadAttachments: boolean;
+  /** Explicit attachment extensions (with or without dot). Empty = "has an extension and is not a page". */
+  attachmentExtensions: string[];
+  /** Where the download file name comes from. Defaults to "alias". */
+  downloadNameFrom: "alias" | "basename";
 }
