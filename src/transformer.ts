@@ -12,6 +12,11 @@ import type {
 import { slugTag, slugifyFilePath, getFileExtension, transformLink } from "@quartz-community/utils";
 import type { TransformOptions } from "@quartz-community/utils";
 import { slugifyWikilinkTarget } from "./util/path";
+import {
+  normalizePropertiesChain,
+  propertiesChainOf,
+  type PropertiesChain,
+} from "./util/propertiesChain";
 import type { NotePropertiesOptions } from "./types";
 
 const defaultOptions: NotePropertiesOptions = {
@@ -132,11 +137,22 @@ function coerceToBool(value: unknown): boolean | undefined {
 function getVisibleProperties(
   data: Record<string, unknown>,
   opts: NotePropertiesOptions,
+  chain: string[] | null = null,
 ): Record<string, unknown> {
   const excluded = new Set(opts.excludedProperties);
   // Always exclude Quartz-internal keys from the visible properties table
   for (const key of QUARTZ_INTERNAL_KEYS) {
     excluded.add(key);
+  }
+  // 配了「属性显示链」：链 = 有序白名单（链外字段仍可作聚合维度，只是不在面板显示）
+  if (chain) {
+    const chained: Record<string, unknown> = {};
+    for (const key of chain) {
+      if (!excluded.has(key) && data[key] !== undefined) {
+        chained[key] = data[key];
+      }
+    }
+    return chained;
   }
   if (opts.includeAll) {
     const result: Record<string, unknown> = {};
@@ -161,6 +177,16 @@ export const NoteProperties: QuartzTransformerPlugin<Partial<NotePropertiesOptio
   userOpts,
 ) => {
   const opts = { ...defaultOptions, ...userOpts };
+  // 属性显示链（可选）：链本身就是有序白名单，与 includeAll 互斥
+  let chain: PropertiesChain | null = null;
+  if (opts.properties !== undefined) {
+    if (opts.includeAll) {
+      throw new Error(
+        "[NoteProperties] options.properties 与 includeAll: true 互斥：properties 已是有序白名单，请去掉 includeAll",
+      );
+    }
+    chain = normalizePropertiesChain(opts.properties);
+  }
   return {
     name: "NoteProperties",
     markdownPlugins(_ctx: BuildCtx) {
@@ -241,7 +267,12 @@ export const NoteProperties: QuartzTransformerPlugin<Partial<NotePropertiesOptio
             const collapseProperties = coerceToBool(
               coalesceAliases(data, ["quartz-properties-collapse", "quartzPropertiesCollapse"]),
             );
-            const visibleProps = getVisibleProperties(data, opts);
+            // 显示链按当前文件的目录来求（file.data.slug 在 markdown 插件运行前已就绪）
+            const visibleProps = getVisibleProperties(
+              data,
+              opts,
+              propertiesChainOf(chain, String(file.data.slug ?? "")),
+            );
             file.data.noteProperties = {
               properties: visibleProps,
               hideView: opts.hidePropertiesView,

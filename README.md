@@ -58,6 +58,7 @@ ExternalPlugin.NoteProperties({
 | `includeAll`         | `boolean`  | `false`                              | Whether to include all frontmatter properties.            |
 | `includedProperties` | `string[]` | `["description", "tags", "aliases"]` | Properties to include when `includeAll` is `false`.       |
 | `excludedProperties` | `string[]` | `[]`                                 | Properties to exclude when `includeAll` is `true`.        |
+| `properties`         | `object`   | —                                    | Per-folder display chain; same shape as `configuration.aggregation`. |
 | `hidePropertiesView` | `boolean`  | `false`                              | Whether to hide the rendered properties view on the page. |
 | `delimiters`         | `string`   | `"---"`                              | The frontmatter delimiter style.                          |
 | `language`           | `string`   | `"yaml"`                             | The frontmatter language (`"yaml"` or `"toml"`).          |

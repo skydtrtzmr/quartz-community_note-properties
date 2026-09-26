@@ -139,6 +139,10 @@
         "type": "array",
         "description": "Properties to exclude from display"
       },
+      "properties": {
+        "type": "object",
+        "description": "Per-folder display chain (folderDepth + branches.default/folders, field names as strings). Same shape as configuration.aggregation; mutually exclusive with includeAll."
+      },
       "hidePropertiesView": {
         "type": "boolean",
         "description": "Hide the visual properties panel while still processing frontmatter"

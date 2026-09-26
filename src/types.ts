@@ -21,6 +21,22 @@ export type {
   FilePath,
 } from "@quartz-community/types";
 
+/**
+ * 「属性显示链」配置：与 `configuration.aggregation` 同构 ——
+ * 文件夹恒为第一层（只设 `folderDepth`），字段链写纯字段名（`string[]`）。
+ * 语义：链 = **有序白名单**；链外字段仍可作为聚合维度，只是不在属性面板显示。
+ */
+export interface PropertiesChainConfiguration {
+  /** 目录上下文层数（文件夹恒为第一层） */
+  folderDepth?: number;
+  branches?: {
+    /** 字段名列表，顺序即面板行序；`[]` 表示该目录不显示任何属性 */
+    default?: string[];
+    /** 目录覆盖：未配置的目录逐层向上回退到 `default` */
+    folders?: Record<string, string[]>;
+  };
+}
+
 export interface NotePropertiesOptions {
   /** Include all frontmatter properties in the display. When false, only `includedProperties` are shown. */
   includeAll: boolean;
@@ -30,6 +46,11 @@ export interface NotePropertiesOptions {
   excludedProperties: string[];
   /** Hide the visual properties panel while still processing frontmatter and resolving links. */
   hidePropertiesView: boolean;
+  /**
+   * 按目录指定「显示哪些属性」（有序白名单）。配置后与 `includeAll: true` 互斥。
+   * 未配置时沿用 `includeAll` / `includedProperties` / `excludedProperties` 的旧行为。
+   */
+  properties?: PropertiesChainConfiguration;
   /** Frontmatter delimiters. Defaults to "---". */
   delimiters: string | [string, string];
   /** Frontmatter language. Defaults to "yaml". */
