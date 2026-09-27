@@ -2,7 +2,7 @@
  * 「属性显示链」的最小解析实现 —— 与 `configuration.aggregation` **同构**：
  * - 文件夹恒为第一层，只设 `folderDepth`（不再写 `type: folder`）
  * - 字段链写纯字段名（`string[]`），不再写 `{ type: field, field }`
- * - 未配置的目录逐层向上回退到 `branches.default`；显式 `[]` **停止**继承
+ * - 未配置的目录逐层向上回退到 `branches.default`；空数组等价于未配置（**没有**「显式中断」态）
  *
  * 与 aggregation-pro 的 compiler 保持同款口径（`directoryKey` / `resolveChain`），
  * 但这里跑在**构建期**、按每个文件的 `file.data.slug` 求链，因此不需要产物。
@@ -26,6 +26,10 @@ function fail(path: string, message: string): never {
   throw new Error(`[NoteProperties] ${path}: ${message}`);
 }
 
+function warn(message: string): void {
+  console.warn(`[NoteProperties] ${message}`);
+}
+
 function object(value: unknown, path: string): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     fail(path, "expected an object");
@@ -42,7 +46,7 @@ function keys(value: Record<string, unknown>, allowed: string[], path: string) {
 /** 字段链：纯字段名数组 */
 function fieldNames(value: unknown, path: string): string[] {
   if (!Array.isArray(value)) {
-    fail(path, "expected an array of field names; use [] to hide every property");
+    fail(path, "expected an array of field names");
   }
   return value.map((item, index) => {
     if (typeof item !== "string" || !item.trim()) {
@@ -83,11 +87,20 @@ export function normalizePropertiesChain(value: unknown): PropertiesChain {
   const foldersRaw =
     branches.folders === undefined ? {} : object(branches.folders, `${base}.branches.folders`);
   const entries = new Map<string, string[]>();
+  // 归一化后的目录键全集：查重用它而不是 entries（空链会被丢弃，不能只看结果表）
+  const seen = new Set<string>();
   for (const [key, value] of Object.entries(foldersRaw)) {
     const path = `${base}.branches.folders[${JSON.stringify(key)}]`;
     const normalized = directoryKey(key, path);
-    if (entries.has(normalized)) fail(path, `duplicate normalized directory: ${normalized}`);
-    entries.set(normalized, fieldNames(value, path));
+    if (seen.has(normalized)) fail(path, `duplicate normalized directory: ${normalized}`);
+    seen.add(normalized);
+    const chain = fieldNames(value, path);
+    // 目录级只有两态：「配了字段」与「未配置」。空数组按未配置丢弃（不再表示「隐藏全部属性」）
+    if (chain.length === 0) {
+      warn(`${path} 是空数组，等价于未配置该目录，将逐层向上继承（最终用 ${base}.branches.default）`);
+      continue;
+    }
+    entries.set(normalized, chain);
   }
 
   return {
@@ -116,7 +129,9 @@ export function propertiesChainOf(config: PropertiesChain | null, slug: string):
   const folder = slug.split("/").slice(0, -1).join("/");
   let current = contextOfFolder(folder, config.depth);
   while (current) {
-    if (Object.hasOwn(config.folders, current)) return config.folders[current]!;
+    // 目录级没有「显式中断」态：空链在归一化阶段已被丢弃，这里再按长度兜一层
+    const chain = config.folders[current];
+    if (chain && chain.length > 0) return chain;
     const slash = current.lastIndexOf("/");
     current = slash > 0 ? current.slice(0, slash) : "";
   }

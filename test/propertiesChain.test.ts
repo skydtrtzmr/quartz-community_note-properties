@@ -22,9 +22,10 @@ describe("属性显示链（与 configuration.aggregation 同构）", () => {
     expect(propertiesChainOf(config, "index")).toEqual(["date", "type"]);
   });
 
-  it("显式 [] 停止继承，不落到父目录 / default", () => {
-    expect(propertiesChainOf(config, "任务/task-00001")).toEqual([]);
-    expect(propertiesChainOf(config, "任务/子/x")).toEqual([]);
+  it("空数组等价于未配置：继续向上继承，产物里不留空链", () => {
+    expect(propertiesChainOf(config, "任务/task-00001")).toEqual(["date", "type"]);
+    expect(propertiesChainOf(config, "任务/子/x")).toEqual(["date", "type"]);
+    expect(config.folders).not.toHaveProperty("任务");
   });
 
   it("folderDepth > 1 时按更深目录命中", () => {
